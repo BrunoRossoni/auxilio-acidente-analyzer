@@ -24,16 +24,23 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
+_startup_error = None
+
 
 @app.on_event("startup")
 def startup_event():
-    init_db()
-    print("Banco de dados inicializado com sucesso.")
+    global _startup_error
+    try:
+        init_db()
+        print("Banco de dados inicializado com sucesso.")
+    except Exception as e:
+        _startup_error = str(e)
+        print(f"ERRO ao inicializar banco: {e}")
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "db_error": _startup_error}
 
 
 @app.get("/")
