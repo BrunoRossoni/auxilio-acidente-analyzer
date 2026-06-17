@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from typing import Optional
@@ -13,20 +13,29 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import init_db, get_db, Processo, FichaAnalise
-from pdf_processor import extract_text_from_pdf, detect_document_type, extract_process_number, extract_all
-from ai_analyzer import extract_processo_data, analisar_novo_caso, get_dashboard_insights
+from pdf_processor import extract_text_from_pdf, extract_all
+from ai_analyzer import analisar_novo_caso
 
 app = FastAPI(title="Analisador de Auxílio-Acidente")
 
-UPLOAD_DIR = Path("uploads")
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
 @app.on_event("startup")
 def startup_event():
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        print(f"Aviso: erro ao inicializar banco — {e}")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 @app.get("/")
@@ -45,7 +54,7 @@ async def upload_pdf(
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Apenas arquivos PDF são aceitos.")
 
-    file_path = UPLOAD_DIR / file.filename
+    file_path = UPLOAD_DIR / Path(file.filename).name
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
@@ -100,7 +109,7 @@ async def upload_lote(
             resultados.append({"arquivo": file.filename, "erro": "Não é PDF"})
             continue
         try:
-            file_path = UPLOAD_DIR / file.filename
+            file_path = UPLOAD_DIR / Path(file.filename).name
             with open(file_path, "wb") as f:
                 shutil.copyfileobj(file.file, f)
 
