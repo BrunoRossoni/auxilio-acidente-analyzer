@@ -11,13 +11,17 @@ _db_url = os.getenv("DATABASE_URL", "sqlite:///./auxilio_acidente.db")
 if _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql://", 1)
 
-# Usa pg8000 (pure Python) para PostgreSQL, sem conflitos de SSL
 if _db_url.startswith("postgresql://"):
-    # Remove ?sslmode da URL — pg8000 não aceita via query string
+    # Remove parâmetros da query string — pg8000 não os aceita
     if "?" in _db_url:
         _db_url = _db_url.split("?")[0]
     _db_url = _db_url.replace("postgresql://", "postgresql+pg8000://", 1)
-    _kwargs = {"ssl_context": True}
+    # SSL com contexto padrão do Python
+    import ssl as _ssl
+    _ssl_ctx = _ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = _ssl.CERT_NONE
+    _kwargs = {"ssl_context": _ssl_ctx}
 else:
     _kwargs = {"check_same_thread": False}
 
