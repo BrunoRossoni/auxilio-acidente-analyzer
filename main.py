@@ -27,10 +27,8 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 
 @app.on_event("startup")
 def startup_event():
-    try:
-        init_db()
-    except Exception as e:
-        print(f"Aviso: erro ao inicializar banco — {e}")
+    init_db()
+    print("Banco de dados inicializado com sucesso.")
 
 
 @app.get("/health")

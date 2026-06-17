@@ -12,7 +12,10 @@ if _db_url.startswith("postgres://"):
 
 DATABASE_URL = _db_url
 
-_kwargs = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+if DATABASE_URL.startswith("sqlite"):
+    _kwargs = {"check_same_thread": False}
+else:
+    _kwargs = {"sslmode": "require"} if "sslmode" not in DATABASE_URL else {}
 engine = create_engine(DATABASE_URL, connect_args=_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
