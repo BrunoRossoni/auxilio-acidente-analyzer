@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Analisador Auxílio-Acidente</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-icon">⚖️</span>
+        <span class="logo-text">Auxílio-Acidente<br><small>Sistema de Análise</small></span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#" class="nav-link active" data-page="dashboard">
+          <span class="nav-icon">📊</span> Dashboard
+        </a></li>
+        <li><a href="#" class="nav-link" data-page="upload">
+          <span class="nav-icon">📤</span> Enviar Processos
+        </a></li>
+        <li><a href="#" class="nav-link" data-page="analisar">
+          <span class="nav-icon">🔍</span> Analisar Caso
+        </a></li>
+        <li><a href="#" class="nav-link" data-page="processos">
+          <span class="nav-icon">📁</span> Processos
+        </a></li>
+        <li><a href="#" class="nav-link" data-page="analises">
+          <span class="nav-icon">📋</span> Análises Salvas
+        </a></li>
+      </ul>
+      <div class="sidebar-footer">
+        <span>v1.0</span>
+      </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <!-- DASHBOARD -->
+      <section id="page-dashboard" class="page active">
+        <div class="page-header">
+          <h1>Dashboard</h1>
+          <p>Visão geral dos seus processos de auxílio-acidente</p>
+        </div>
+
+        <div id="dashboard-vazio" class="empty-state" style="display:none">
+          <div class="empty-icon">📂</div>
+          <h2>Base vazia</h2>
+          <p>Envie processos na aba <strong>Enviar Processos</strong> para começar a análise.</p>
+        </div>
+
+        <div id="dashboard-conteudo">
+          <!-- Cards resumo -->
+          <div class="cards-grid">
+            <div class="card card-blue">
+              <div class="card-icon">📄</div>
+              <div class="card-info">
+                <div class="card-value" id="total-docs">—</div>
+                <div class="card-label">Documentos</div>
+              </div>
+            </div>
+            <div class="card card-green">
+              <div class="card-icon">✅</div>
+              <div class="card-info">
+                <div class="card-value" id="total-procedentes">—</div>
+                <div class="card-label">Procedentes</div>
+              </div>
+            </div>
+            <div class="card card-red">
+              <div class="card-icon">❌</div>
+              <div class="card-info">
+                <div class="card-value" id="total-improcedentes">—</div>
+                <div class="card-label">Improcedentes</div>
+              </div>
+            </div>
+            <div class="card card-purple">
+              <div class="card-icon">📈</div>
+              <div class="card-info">
+                <div class="card-value" id="taxa-geral">—</div>
+                <div class="card-label">Taxa de Êxito</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- CIDs e Estados -->
+          <div class="grid-2">
+            <div class="box">
+              <h2 class="box-title">🏥 CIDs mais frequentes</h2>
+              <div id="tabela-cids"></div>
+            </div>
+            <div class="box">
+              <h2 class="box-title">🗺️ Taxa de êxito por Estado</h2>
+              <div id="tabela-estados"></div>
+            </div>
+          </div>
+
+          <!-- Tipo de acidente -->
+          <div class="box" style="margin-top:20px">
+            <h2 class="box-title">⚠️ Por Tipo de Acidente</h2>
+            <div id="tabela-tipos"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- UPLOAD -->
+      <section id="page-upload" class="page">
+        <div class="page-header">
+          <h1>Enviar Processos</h1>
+          <p>Faça upload de iniciais, laudos periciais e sentenças em PDF</p>
+        </div>
+
+        <div class="box">
+          <h2 class="box-title">Upload em lote (múltiplos PDFs)</h2>
+          <div class="upload-zone" id="upload-zone">
+            <div class="upload-icon">📁</div>
+            <p>Arraste arquivos PDF aqui ou clique para selecionar</p>
+            <small>Você pode selecionar vários arquivos de uma vez</small>
+            <input type="file" id="file-input" multiple accept=".pdf" style="display:none"/>
+          </div>
+          <div id="upload-lista" class="upload-lista"></div>
+          <button id="btn-enviar" class="btn btn-primary" style="display:none">
+            📤 Processar Arquivos Selecionados
+          </button>
+        </div>
+
+        <div id="upload-progresso" class="box" style="display:none; margin-top:20px">
+          <h2 class="box-title">Progresso</h2>
+          <div id="progresso-lista"></div>
+        </div>
+      </section>
+
+      <!-- ANALISAR -->
+      <section id="page-analisar" class="page">
+        <div class="page-header">
+          <h1>Analisar Novo Caso</h1>
+          <p>Preencha a ficha do cliente para obter o percentual de êxito</p>
+        </div>
+
+        <div class="grid-2">
+          <div class="box">
+            <h2 class="box-title">📋 Ficha do Cliente</h2>
+            <form id="form-analise">
+              <div class="form-group">
+                <label>Nome do Cliente *</label>
+                <input type="text" name="nome_cliente" required placeholder="Ex: João Silva"/>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>CID Principal *</label>
+                  <input type="text" name="cid_principal" required placeholder="Ex: S52.0"/>
+                </div>
+                <div class="form-group">
+                  <label>Descrição do CID</label>
+                  <input type="text" name="descricao_cid" placeholder="Ex: Fratura do rádio"/>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Tipo de Acidente *</label>
+                <select name="tipo_acidente" required>
+                  <option value="">Selecione...</option>
+                  <option value="acidente de trabalho">Acidente de Trabalho</option>
+                  <option value="doença ocupacional">Doença Ocupacional</option>
+                  <option value="acidente de trajeto">Acidente de Trajeto</option>
+                  <option value="outro">Outro</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Parte do Corpo</label>
+                  <input type="text" name="parte_corpo" placeholder="Ex: Membro superior direito"/>
+                </div>
+                <div class="form-group">
+                  <label>Profissão</label>
+                  <input type="text" name="profissao" placeholder="Ex: Operador de máquinas"/>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Idade</label>
+                  <input type="number" name="idade" placeholder="Ex: 45" min="18" max="100"/>
+                </div>
+                <div class="form-group">
+                  <label>Grau de Incapacidade</label>
+                  <select name="grau_incapacidade">
+                    <option value="">Selecione...</option>
+                    <option value="parcial">Parcial</option>
+                    <option value="total">Total</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Estado</label>
+                  <select name="estado">
+                    <option value="">Selecione...</option>
+                    <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+                    <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+                    <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+                    <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+                    <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+                    <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+                    <option>SP</option><option>SE</option><option>TO</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Cidade</label>
+                  <input type="text" name="cidade" placeholder="Ex: São Paulo"/>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Tempo de Afastamento</label>
+                <input type="text" name="tempo_afastamento" placeholder="Ex: 6 meses, 1 ano..."/>
+              </div>
+              <div class="form-group">
+                <label>Informações Adicionais</label>
+                <textarea name="informacoes_adicionais" rows="4" placeholder="Descreva detalhes relevantes do caso: histórico, laudos anteriores, grau de sequela, etc."></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary btn-full" id="btn-analisar">
+                🔍 Gerar Análise
+              </button>
+            </form>
+          </div>
+
+          <div class="box" id="resultado-analise" style="display:none">
+            <h2 class="box-title">📊 Resultado da Análise</h2>
+            <div id="resultado-conteudo"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PROCESSOS -->
+      <section id="page-processos" class="page">
+        <div class="page-header">
+          <h1>Processos Cadastrados</h1>
+          <p id="total-processos-label">Carregando...</p>
+        </div>
+        <div class="box">
+          <div id="tabela-processos-wrap">
+            <table class="tabela" id="tabela-processos">
+              <thead>
+                <tr>
+                  <th>Arquivo</th>
+                  <th>Tipo</th>
+                  <th>CID</th>
+                  <th>Resultado</th>
+                  <th>Estado</th>
+                  <th>Tipo Acidente</th>
+                  <th>Processado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-processos"></tbody>
+            </table>
+          </div>
+          <div class="paginacao">
+            <button id="btn-prev" class="btn btn-sm" onclick="mudarPagina(-1)">← Anterior</button>
+            <span id="pag-info"></span>
+            <button id="btn-next" class="btn btn-sm" onclick="mudarPagina(1)">Próximo →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ANÁLISES SALVAS -->
+      <section id="page-analises" class="page">
+        <div class="page-header">
+          <h1>Análises Salvas</h1>
+          <p>Histórico de casos analisados</p>
+        </div>
+        <div id="lista-analises"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
