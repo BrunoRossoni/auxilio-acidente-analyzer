@@ -6,16 +6,22 @@ from datetime import datetime
 import os
 
 _db_url = os.getenv("DATABASE_URL", "sqlite:///./auxilio_acidente.db")
-# Render fornece URLs postgres://, SQLAlchemy precisa de postgresql://
+
+# Render fornece postgres://, SQLAlchemy precisa de postgresql://
 if _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql://", 1)
 
-DATABASE_URL = _db_url
-
-if DATABASE_URL.startswith("sqlite"):
-    _kwargs = {"check_same_thread": False}
+# Usa pg8000 (pure Python) para PostgreSQL, sem conflitos de SSL
+if _db_url.startswith("postgresql://"):
+    # Remove ?sslmode da URL — pg8000 não aceita via query string
+    if "?" in _db_url:
+        _db_url = _db_url.split("?")[0]
+    _db_url = _db_url.replace("postgresql://", "postgresql+pg8000://", 1)
+    _kwargs = {"ssl_context": True}
 else:
-    _kwargs = {"sslmode": "require"} if "sslmode" not in DATABASE_URL else {}
+    _kwargs = {"check_same_thread": False}
+
+DATABASE_URL = _db_url
 engine = create_engine(DATABASE_URL, connect_args=_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
