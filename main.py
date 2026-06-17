@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from database import init_db, get_db, Processo, FichaAnalise
-from pdf_processor import extract_text_from_pdf, detect_document_type, extract_cid_codes, extract_process_number
+from pdf_processor import extract_text_from_pdf, detect_document_type, extract_process_number, extract_all
 from ai_analyzer import extract_processo_data, analisar_novo_caso, get_dashboard_insights
 
 app = FastAPI(title="Analisador de Auxílio-Acidente")
@@ -54,14 +54,11 @@ async def upload_pdf(
         if not texto:
             raise HTTPException(status_code=400, detail="Não foi possível extrair texto do PDF. Verifique se não é um PDF escaneado.")
 
-        tipo = tipo_documento or detect_document_type(texto, file.filename)
-        numero_processo = extract_process_number(texto)
-
-        # Extrai dados com IA
-        dados = extract_processo_data(texto, tipo)
+        dados = extract_all(texto, file.filename)
+        tipo = tipo_documento or dados.get("tipo_documento", "outro")
 
         processo = Processo(
-            numero_processo=dados.get("numero_processo") or numero_processo,
+            numero_processo=dados.get("numero_processo"),
             tipo_documento=tipo,
             texto_extraido=texto[:10000],
             cid_principal=dados.get("cid_principal"),
@@ -70,16 +67,11 @@ async def upload_pdf(
             resultado=dados.get("resultado"),
             estado=dados.get("estado"),
             cidade=dados.get("cidade"),
-            vara=dados.get("vara"),
-            juiz=dados.get("juiz"),
             tipo_acidente=dados.get("tipo_acidente"),
             parte_corpo=dados.get("parte_corpo"),
             profissao=dados.get("profissao"),
-            idade_segurado=dados.get("idade_segurado"),
             grau_incapacidade=dados.get("grau_incapacidade"),
-            data_acidente=dados.get("data_acidente"),
             nome_arquivo=file.filename,
-            resumo_ia=dados.get("resumo"),
         )
         db.add(processo)
         db.commit()
@@ -91,7 +83,6 @@ async def upload_pdf(
             "tipo_detectado": tipo,
             "cid_principal": dados.get("cid_principal"),
             "resultado": dados.get("resultado"),
-            "resumo": dados.get("resumo"),
         }
 
     except Exception as e:
@@ -118,11 +109,11 @@ async def upload_lote(
                 resultados.append({"arquivo": file.filename, "erro": "Sem texto extraível"})
                 continue
 
-            tipo = detect_document_type(texto, file.filename)
-            dados = extract_processo_data(texto, tipo)
+            dados = extract_all(texto, file.filename)
+            tipo = dados.get("tipo_documento", "outro")
 
             processo = Processo(
-                numero_processo=dados.get("numero_processo") or extract_process_number(texto),
+                numero_processo=dados.get("numero_processo"),
                 tipo_documento=tipo,
                 texto_extraido=texto[:10000],
                 cid_principal=dados.get("cid_principal"),
@@ -131,16 +122,11 @@ async def upload_lote(
                 resultado=dados.get("resultado"),
                 estado=dados.get("estado"),
                 cidade=dados.get("cidade"),
-                vara=dados.get("vara"),
-                juiz=dados.get("juiz"),
                 tipo_acidente=dados.get("tipo_acidente"),
                 parte_corpo=dados.get("parte_corpo"),
                 profissao=dados.get("profissao"),
-                idade_segurado=dados.get("idade_segurado"),
                 grau_incapacidade=dados.get("grau_incapacidade"),
-                data_acidente=dados.get("data_acidente"),
                 nome_arquivo=file.filename,
-                resumo_ia=dados.get("resumo"),
             )
             db.add(processo)
             db.commit()
