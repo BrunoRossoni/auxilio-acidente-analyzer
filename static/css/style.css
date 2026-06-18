@@ -225,8 +225,77 @@ body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; color: #1a1a2e;
   animation: spin .8s linear infinite; margin: 0 auto 16px;
 }
 
+/* ─── ARQUIVO CARD (upload) ────────────────────────────────────────────────── */
+.arquivo-card {
+  background: #f8faff; border: 1.5px solid #d0ddf5; border-radius: 12px;
+  padding: 16px; margin-bottom: 14px;
+}
+.arquivo-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.arquivo-nome { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+.btn-remover {
+  background: none; border: none; cursor: pointer; color: #aaa;
+  font-size: 16px; padding: 2px 6px; border-radius: 4px; transition: color .2s;
+}
+.btn-remover:hover { color: #ef4444; background: #fee2e2; }
+
+.arquivo-campos {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;
+}
+.campo-sm label {
+  display: block; font-size: 11px; font-weight: 600; color: #666;
+  margin-bottom: 4px; text-transform: uppercase; letter-spacing: .3px;
+}
+.campo-sm input, .campo-sm select {
+  width: 100%; padding: 7px 10px; border: 1.5px solid #e0e4ee;
+  border-radius: 7px; font-size: 12px; background: #fff; font-family: inherit;
+  transition: border .2s;
+}
+.campo-sm input:focus, .campo-sm select:focus {
+  outline: none; border-color: #4f8ef7; background: #fff;
+}
+.arquivo-hint { font-size: 11px; color: #aaa; margin-top: 10px; }
+
+/* ─── TOGGLE VIEW ──────────────────────────────────────────────────────────── */
+.toggle-view { display: flex; gap: 0; border: 1.5px solid #e0e4ee; border-radius: 8px; overflow: hidden; }
+.btn-toggle {
+  background: #fff; border: none; padding: 8px 18px; font-size: 13px; font-weight: 600;
+  cursor: pointer; color: #666; transition: all .2s; font-family: inherit;
+}
+.btn-toggle:hover { background: #f0f5ff; color: #4f8ef7; }
+.btn-toggle.active { background: #4f8ef7; color: #fff; }
+
+/* ─── PROCESSO GRUPO ───────────────────────────────────────────────────────── */
+.processo-grupo {
+  border: 1.5px solid #e5e7eb; border-radius: 12px; margin-bottom: 12px;
+  overflow: hidden;
+}
+.grupo-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; background: #f8f9fa; cursor: pointer;
+  gap: 12px; flex-wrap: wrap; transition: background .15s;
+}
+.grupo-header:hover { background: #eff5ff; }
+.grupo-numero { font-size: 14px; font-weight: 700; color: #1a1a2e; }
+.grupo-count {
+  display: inline-block; margin-left: 10px; font-size: 11px; font-weight: 600;
+  background: #dbeafe; color: #1e40af; padding: 2px 8px; border-radius: 20px;
+}
+.grupo-meta { font-size: 12px; color: #666; flex: 1; text-align: center; }
+.grupo-chevron { font-size: 11px; color: #999; flex-shrink: 0; }
+.grupo-docs { padding: 0 18px 16px; overflow-x: auto; }
+.grupo-docs table { margin-top: 12px; }
+
+/* ─── UTILITÁRIOS ──────────────────────────────────────────────────────────── */
+.td-ellipsis { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sem-dados { color: #999; font-size: 13px; padding: 8px 0; }
+.badge-purple { background: #ede9fe; color: #5b21b6; }
+
 @media (max-width: 900px) {
   .cards-grid { grid-template-columns: repeat(2,1fr); }
   .grid-2 { grid-template-columns: 1fr; }
   .form-row { grid-template-columns: 1fr; }
+  .arquivo-campos { grid-template-columns: 1fr 1fr; }
 }

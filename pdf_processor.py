@@ -53,6 +53,26 @@ def extract_process_number(text: str) -> str:
     return None
 
 
+def extract_nome_parte(text: str) -> str:
+    """Extrai o nome da parte autora (requerente/autor) do documento."""
+    patterns = [
+        # "AUTOR: João da Silva" ou "Requerente: João da Silva"
+        r'(?:AUTOR|REQUERENTE|EXEQUENTE|PROMOVENTE|RECLAMANTE)[\s:]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+(?:\s+(?:de|da|do|dos|das|e\s+)?[A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+){1,5})',
+        r'(?:Autor|Requerente|Exequente|Promovente|Reclamante)[\s:]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+(?:\s+(?:de|da|do|dos|das|e\s+)?[A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+){1,5})',
+        # "parte autora: João Silva"
+        r'parte\s+autora[\s:]+([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+(?:\s+[A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç]+){1,5})',
+    ]
+    for p in patterns:
+        m = re.search(p, text)
+        if m:
+            nome = m.group(1).strip()
+            # Filtra nomes inválidos (muito curtos ou com palavras-chave)
+            palavras_invalidas = {"inss", "instituto", "nacional", "previdencia", "social", "federal", "estado", "municipio"}
+            if len(nome) > 5 and not any(w in nome.lower() for w in palavras_invalidas):
+                return nome
+    return None
+
+
 # Mapeamento de CIDs conhecidos
 CID_DESCRICOES = {
     "S": "Traumatismo / Lesão",
@@ -86,29 +106,38 @@ def extract_resultado(text: str) -> str:
     return None
 
 
-def extract_estado_cidade(text: str) -> dict:
-    result = {"estado": None, "cidade": None}
+def extract_comarca_estado(text: str) -> dict:
+    """Extrai comarca, cidade e estado do texto."""
+    result = {"estado": None, "cidade": None, "comarca": None}
     estados = {
-        "AC": "Acre", "AL": "Alagoas", "AP": "Amapá", "AM": "Amazonas",
-        "BA": "Bahia", "CE": "Ceará", "DF": "Distrito Federal", "ES": "Espírito Santo",
-        "GO": "Goiás", "MA": "Maranhão", "MT": "Mato Grosso", "MS": "Mato Grosso do Sul",
-        "MG": "Minas Gerais", "PA": "Pará", "PB": "Paraíba", "PR": "Paraná",
-        "PE": "Pernambuco", "PI": "Piauí", "RJ": "Rio de Janeiro", "RN": "Rio Grande do Norte",
-        "RS": "Rio Grande do Sul", "RO": "Rondônia", "RR": "Roraima", "SC": "Santa Catarina",
-        "SP": "São Paulo", "SE": "Sergipe", "TO": "Tocantins"
+        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA",
+        "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN",
+        "RS", "RO", "RR", "SC", "SP", "SE", "TO"
     }
-    # Busca padrão "Comarca de Cidade - SP" ou "Vara de ... de Cidade/SP"
-    match = re.search(r'comarca\s+de\s+([A-ZÀ-Ú][a-zà-ú\s]+?)[\s\-/]+([A-Z]{2})\b', text, re.IGNORECASE)
-    if match:
-        result["cidade"] = match.group(1).strip().title()
-        result["estado"] = match.group(2).upper()
+
+    # Padrão: "Comarca de Cidade - SP" ou "Comarca de Cidade/SP"
+    m = re.search(
+        r'comarca\s+(?:de\s+)?([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç\s]+?)(?:\s*[-/–]\s*|\s+)([A-Z]{2})\b',
+        text, re.IGNORECASE
+    )
+    if m and m.group(2).upper() in estados:
+        result["comarca"] = m.group(1).strip().title()
+        result["cidade"] = result["comarca"]
+        result["estado"] = m.group(2).upper()
         return result
 
-    # Busca por "Cidade/UF"
-    match = re.search(r'([A-ZÀ-Ú][a-zà-ú\s]{3,30})/([A-Z]{2})\b', text)
-    if match and match.group(2) in estados:
-        result["cidade"] = match.group(1).strip().title()
-        result["estado"] = match.group(2)
+    # Padrão: "Comarca de Cidade" (sem estado explícito)
+    m = re.search(r'comarca\s+(?:de\s+)?([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç\s]{2,40}?)(?=\s*[\n\r,.])', text, re.IGNORECASE)
+    if m:
+        result["comarca"] = m.group(1).strip().title()
+        result["cidade"] = result["comarca"]
+
+    # Padrão: "Cidade/UF"
+    m2 = re.search(r'([A-ZÁÉÍÓÚÀÂÊÔÃÕÇ][a-záéíóúàâêôãõç\s]{3,30})/([A-Z]{2})\b', text)
+    if m2 and m2.group(2).upper() in estados:
+        if not result["cidade"]:
+            result["cidade"] = m2.group(1).strip().title()
+        result["estado"] = m2.group(2).upper()
         return result
 
     # Só estado
@@ -179,17 +208,19 @@ def extract_all(text: str, filename: str) -> dict:
     cids = extract_cid_codes(text)
     cid_principal = cids[0] if cids else None
     cid_secundario = cids[1] if len(cids) > 1 else None
-    loc = extract_estado_cidade(text)
+    loc = extract_comarca_estado(text)
 
     return {
         "tipo_documento": tipo,
         "numero_processo": extract_process_number(text),
+        "nome_parte": extract_nome_parte(text),
         "cid_principal": cid_principal,
         "cid_secundario": cid_secundario,
         "descricao_cid": get_descricao_cid(cid_principal),
         "resultado": extract_resultado(text) if tipo == "sentenca" else None,
         "estado": loc["estado"],
         "cidade": loc["cidade"],
+        "comarca": loc["comarca"],
         "tipo_acidente": extract_tipo_acidente(text),
         "parte_corpo": extract_parte_corpo(text),
         "profissao": extract_profissao(text),

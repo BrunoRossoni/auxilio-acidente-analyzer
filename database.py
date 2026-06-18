@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
@@ -7,11 +7,9 @@ import os
 
 _db_url = os.getenv("DATABASE_URL", "sqlite:///./auxilio_acidente.db")
 
-# Render fornece postgres://, SQLAlchemy precisa de postgresql://
 if _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql://", 1)
 
-# Remove query string (sslmode etc) — conexão interna Render não precisa de SSL
 if _db_url.startswith("postgresql://") and "?" in _db_url:
     _db_url = _db_url.split("?")[0]
 
@@ -31,6 +29,7 @@ class Processo(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     numero_processo = Column(String, nullable=True)
+    nome_parte = Column(String, nullable=True)
     tipo_documento = Column(String)  # inicial, laudo, sentenca
     texto_extraido = Column(Text)
     cid_principal = Column(String, nullable=True)
@@ -40,6 +39,7 @@ class Processo(Base):
     regiao = Column(String, nullable=True)
     estado = Column(String, nullable=True)
     cidade = Column(String, nullable=True)
+    comarca = Column(String, nullable=True)
     vara = Column(String, nullable=True)
     juiz = Column(String, nullable=True)
     tipo_acidente = Column(String, nullable=True)
@@ -84,5 +84,20 @@ def get_db():
         db.close()
 
 
+def _add_column_if_missing(conn, table: str, column: str, col_type: str):
+    try:
+        conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}"))
+        conn.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
+    # Migrate existing tables to add new columns without losing data
+    with engine.connect() as conn:
+        _add_column_if_missing(conn, "processos", "nome_parte", "VARCHAR")
+        _add_column_if_missing(conn, "processos", "comarca", "VARCHAR")

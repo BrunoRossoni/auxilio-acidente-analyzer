@@ -32,7 +32,7 @@
         </a></li>
       </ul>
       <div class="sidebar-footer">
-        <span>v1.0</span>
+        <span>v2.0</span>
       </div>
     </nav>
 
@@ -52,7 +52,6 @@
         </div>
 
         <div id="dashboard-conteudo">
-          <!-- Cards resumo -->
           <div class="cards-grid">
             <div class="card card-blue">
               <div class="card-icon">📄</div>
@@ -84,7 +83,6 @@
             </div>
           </div>
 
-          <!-- CIDs e Estados -->
           <div class="grid-2">
             <div class="box">
               <h2 class="box-title">🏥 CIDs mais frequentes</h2>
@@ -96,7 +94,6 @@
             </div>
           </div>
 
-          <!-- Tipo de acidente -->
           <div class="box" style="margin-top:20px">
             <h2 class="box-title">⚠️ Por Tipo de Acidente</h2>
             <div id="tabela-tipos"></div>
@@ -108,25 +105,32 @@
       <section id="page-upload" class="page">
         <div class="page-header">
           <h1>Enviar Processos</h1>
-          <p>Faça upload de iniciais, laudos periciais e sentenças em PDF</p>
+          <p>Faça upload de iniciais, laudos e sentenças em PDF. Preencha os dados manualmente ou deixe em branco para detecção automática.</p>
         </div>
 
         <div class="box">
-          <h2 class="box-title">Upload em lote (múltiplos PDFs)</h2>
+          <h2 class="box-title">Selecionar arquivos PDF</h2>
           <div class="upload-zone" id="upload-zone">
             <div class="upload-icon">📁</div>
             <p>Arraste arquivos PDF aqui ou clique para selecionar</p>
             <small>Você pode selecionar vários arquivos de uma vez</small>
             <input type="file" id="file-input" multiple accept=".pdf" style="display:none"/>
           </div>
-          <div id="upload-lista" class="upload-lista"></div>
-          <button id="btn-enviar" class="btn btn-primary" style="display:none">
-            📤 Processar Arquivos Selecionados
-          </button>
+        </div>
+
+        <div id="upload-arquivos-wrap" style="display:none; margin-top:20px">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
+            <h2 style="font-size:16px;font-weight:700;color:#1a1a2e">Arquivos selecionados</h2>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-sm" onclick="limparTodos()">Limpar todos</button>
+              <button id="btn-enviar" class="btn btn-primary">📤 Processar Arquivos</button>
+            </div>
+          </div>
+          <div id="upload-arquivos-lista"></div>
         </div>
 
         <div id="upload-progresso" class="box" style="display:none; margin-top:20px">
-          <h2 class="box-title">Progresso</h2>
+          <h2 class="box-title">Progresso do upload</h2>
           <div id="progresso-lista"></div>
         </div>
       </section>
@@ -168,11 +172,11 @@
               </div>
               <div class="form-row">
                 <div class="form-group">
-                  <label>Parte do Corpo</label>
+                  <label>Membro da Sequela</label>
                   <input type="text" name="parte_corpo" placeholder="Ex: Membro superior direito"/>
                 </div>
                 <div class="form-group">
-                  <label>Profissão</label>
+                  <label>Função Exercida</label>
                   <input type="text" name="profissao" placeholder="Ex: Operador de máquinas"/>
                 </div>
               </div>
@@ -215,7 +219,7 @@
               </div>
               <div class="form-group">
                 <label>Informações Adicionais</label>
-                <textarea name="informacoes_adicionais" rows="4" placeholder="Descreva detalhes relevantes do caso: histórico, laudos anteriores, grau de sequela, etc."></textarea>
+                <textarea name="informacoes_adicionais" rows="4" placeholder="Descreva detalhes relevantes do caso..."></textarea>
               </div>
               <button type="submit" class="btn btn-primary btn-full" id="btn-analisar">
                 🔍 Gerar Análise
@@ -236,28 +240,51 @@
           <h1>Processos Cadastrados</h1>
           <p id="total-processos-label">Carregando...</p>
         </div>
+
         <div class="box">
-          <div id="tabela-processos-wrap">
-            <table class="tabela" id="tabela-processos">
-              <thead>
-                <tr>
-                  <th>Arquivo</th>
-                  <th>Tipo</th>
-                  <th>CID</th>
-                  <th>Resultado</th>
-                  <th>Estado</th>
-                  <th>Tipo Acidente</th>
-                  <th>Processado</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="tbody-processos"></tbody>
-            </table>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px">
+            <div class="toggle-view">
+              <button class="btn-toggle active" id="btn-view-agrupado" onclick="setView('agrupado')">
+                📁 Por Processo
+              </button>
+              <button class="btn-toggle" id="btn-view-lista" onclick="setView('lista')">
+                📋 Lista
+              </button>
+            </div>
           </div>
-          <div class="paginacao">
-            <button id="btn-prev" class="btn btn-sm" onclick="mudarPagina(-1)">← Anterior</button>
-            <span id="pag-info"></span>
-            <button id="btn-next" class="btn btn-sm" onclick="mudarPagina(1)">Próximo →</button>
+
+          <!-- VISÃO AGRUPADA -->
+          <div id="view-agrupado">
+            <div id="grupos-container"></div>
+          </div>
+
+          <!-- VISÃO LISTA -->
+          <div id="view-lista" style="display:none">
+            <div id="tabela-processos-wrap" style="overflow-x:auto">
+              <table class="tabela" id="tabela-processos">
+                <thead>
+                  <tr>
+                    <th>Nº Processo</th>
+                    <th>Nome da Parte</th>
+                    <th>Tipo</th>
+                    <th>CID</th>
+                    <th>Membro Sequela</th>
+                    <th>Função</th>
+                    <th>Comarca</th>
+                    <th>Resultado</th>
+                    <th>UF</th>
+                    <th>Processado</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-processos"></tbody>
+              </table>
+            </div>
+            <div class="paginacao">
+              <button id="btn-prev" class="btn btn-sm" onclick="mudarPagina(-1)">← Anterior</button>
+              <span id="pag-info"></span>
+              <button id="btn-next" class="btn btn-sm" onclick="mudarPagina(1)">Próximo →</button>
+            </div>
           </div>
         </div>
       </section>

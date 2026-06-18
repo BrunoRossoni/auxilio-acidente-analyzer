@@ -54,6 +54,13 @@ def read_root():
 async def upload_pdf(
     file: UploadFile = File(...),
     tipo_documento: Optional[str] = Form(None),
+    numero_processo: Optional[str] = Form(None),
+    nome_parte: Optional[str] = Form(None),
+    cid_principal: Optional[str] = Form(None),
+    parte_corpo: Optional[str] = Form(None),
+    profissao: Optional[str] = Form(None),
+    comarca: Optional[str] = Form(None),
+    resultado: Optional[str] = Form(None),
     db: Session = Depends(get_db)
 ):
     if not file.filename.endswith(".pdf"):
@@ -66,24 +73,33 @@ async def upload_pdf(
     try:
         texto = extract_text_from_pdf(str(file_path))
         if not texto:
-            raise HTTPException(status_code=400, detail="Não foi possível extrair texto do PDF. Verifique se não é um PDF escaneado.")
+            raise HTTPException(status_code=400, detail="Não foi possível extrair texto do PDF.")
 
         dados = extract_all(texto, file.filename)
-        tipo = tipo_documento or dados.get("tipo_documento", "outro")
+
+        # Campos manuais têm prioridade sobre os detectados automaticamente
+        def manual_or_auto(manual, auto_key):
+            val = (manual or "").strip()
+            return val if val else dados.get(auto_key)
+
+        tipo = (tipo_documento or "").strip() or dados.get("tipo_documento", "outro")
+        cid = manual_or_auto(cid_principal, "cid_principal")
 
         processo = Processo(
-            numero_processo=dados.get("numero_processo"),
+            numero_processo=manual_or_auto(numero_processo, "numero_processo"),
+            nome_parte=manual_or_auto(nome_parte, "nome_parte"),
             tipo_documento=tipo,
             texto_extraido=texto[:10000],
-            cid_principal=dados.get("cid_principal"),
+            cid_principal=cid,
             cid_secundario=dados.get("cid_secundario"),
             descricao_cid=dados.get("descricao_cid"),
-            resultado=dados.get("resultado"),
+            resultado=manual_or_auto(resultado, "resultado"),
             estado=dados.get("estado"),
             cidade=dados.get("cidade"),
+            comarca=manual_or_auto(comarca, "comarca"),
             tipo_acidente=dados.get("tipo_acidente"),
-            parte_corpo=dados.get("parte_corpo"),
-            profissao=dados.get("profissao"),
+            parte_corpo=manual_or_auto(parte_corpo, "parte_corpo"),
+            profissao=manual_or_auto(profissao, "profissao"),
             grau_incapacidade=dados.get("grau_incapacidade"),
             nome_arquivo=file.filename,
         )
@@ -94,9 +110,12 @@ async def upload_pdf(
         return {
             "sucesso": True,
             "id": processo.id,
-            "tipo_detectado": tipo,
-            "cid_principal": dados.get("cid_principal"),
-            "resultado": dados.get("resultado"),
+            "tipo_detectado": processo.tipo_documento,
+            "cid_principal": processo.cid_principal,
+            "resultado": processo.resultado,
+            "nome_parte": processo.nome_parte,
+            "numero_processo": processo.numero_processo,
+            "comarca": processo.comarca,
         }
 
     except Exception as e:
@@ -321,30 +340,83 @@ async def analisar_caso(
 
 # ─── LISTAGEM DE PROCESSOS ──────────────────────────────────────────────────────
 
+def _serialize_processo(p: Processo) -> dict:
+    return {
+        "id": p.id,
+        "numero_processo": p.numero_processo,
+        "nome_parte": p.nome_parte,
+        "tipo_documento": p.tipo_documento,
+        "cid_principal": p.cid_principal,
+        "descricao_cid": p.descricao_cid,
+        "resultado": p.resultado,
+        "estado": p.estado,
+        "cidade": p.cidade,
+        "comarca": p.comarca,
+        "tipo_acidente": p.tipo_acidente,
+        "parte_corpo": p.parte_corpo,
+        "profissao": p.profissao,
+        "nome_arquivo": p.nome_arquivo,
+        "processado_em": p.processado_em.isoformat() if p.processado_em else None,
+    }
+
+
 @app.get("/api/processos")
 def listar_processos(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
     processos = db.query(Processo).order_by(Processo.processado_em.desc()).offset(skip).limit(limit).all()
     total = db.query(func.count(Processo.id)).scalar()
     return {
         "total": total,
-        "processos": [
-            {
-                "id": p.id,
-                "numero_processo": p.numero_processo,
-                "tipo_documento": p.tipo_documento,
-                "cid_principal": p.cid_principal,
-                "descricao_cid": p.descricao_cid,
-                "resultado": p.resultado,
-                "estado": p.estado,
-                "cidade": p.cidade,
-                "tipo_acidente": p.tipo_acidente,
-                "nome_arquivo": p.nome_arquivo,
-                "processado_em": p.processado_em.isoformat() if p.processado_em else None,
-                "resumo_ia": p.resumo_ia,
-            }
-            for p in processos
-        ]
+        "processos": [_serialize_processo(p) for p in processos],
     }
+
+
+@app.get("/api/processos/agrupados")
+def processos_agrupados(db: Session = Depends(get_db)):
+    """Retorna processos agrupados por número de processo."""
+    try:
+        todos = db.query(Processo).order_by(Processo.numero_processo, Processo.processado_em).all()
+
+        grupos: dict = {}
+        sem_numero: list = []
+
+        for p in todos:
+            doc = _serialize_processo(p)
+            num = (p.numero_processo or "").strip()
+            if num:
+                if num not in grupos:
+                    grupos[num] = {
+                        "numero_processo": num,
+                        "nome_parte": p.nome_parte,
+                        "estado": p.estado,
+                        "comarca": p.comarca,
+                        "documentos": [],
+                    }
+                grupos[num]["documentos"].append(doc)
+                # Preenche nome_parte e comarca do grupo se ainda não definidos
+                if not grupos[num]["nome_parte"] and p.nome_parte:
+                    grupos[num]["nome_parte"] = p.nome_parte
+                if not grupos[num]["comarca"] and p.comarca:
+                    grupos[num]["comarca"] = p.comarca
+            else:
+                sem_numero.append(doc)
+
+        resultado = list(grupos.values())
+        if sem_numero:
+            resultado.append({
+                "numero_processo": None,
+                "nome_parte": None,
+                "estado": None,
+                "comarca": None,
+                "documentos": sem_numero,
+            })
+
+        return {
+            "grupos": resultado,
+            "total_processos": len(grupos),
+            "total_documentos": len(todos),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro: {type(e).__name__}: {str(e)}")
 
 
 @app.get("/api/analises")
