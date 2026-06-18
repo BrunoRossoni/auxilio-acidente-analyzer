@@ -134,159 +134,187 @@ async function carregarDashboard() {
   }
 }
 
-// ─── UPLOAD ───────────────────────────────────────────────────────────────────
-const uploadZone = document.getElementById('upload-zone');
-const fileInput = document.getElementById('file-input');
-let arquivosSelecionados = [];
+// ─── UPLOAD — FICHAS POR PROCESSO ────────────────────────────────────────────
+let fichaCount = 0;
 
-uploadZone.addEventListener('click', () => fileInput.click());
-uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
-uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
-uploadZone.addEventListener('drop', e => {
-  e.preventDefault(); uploadZone.classList.remove('drag-over');
-  adicionarArquivos(Array.from(e.dataTransfer.files));
-});
-fileInput.addEventListener('change', () => {
-  adicionarArquivos(Array.from(fileInput.files));
-  fileInput.value = '';
-});
+function adicionarFicha() {
+  const id = fichaCount++;
+  const container = document.getElementById('fichas-container');
 
-function adicionarArquivos(novos) {
-  const pdfs = novos.filter(f => f.name.endsWith('.pdf'));
-  arquivosSelecionados.push(...pdfs);
-  renderizarArquivos();
+  const div = document.createElement('div');
+  div.className = 'ficha-processo';
+  div.id = `ficha-${id}`;
+  div.innerHTML = `
+    <div class="ficha-topo">
+      <h2 class="ficha-titulo">📋 Processo ${fichaCount}</h2>
+      ${fichaCount > 1 ? `<button class="btn-remover" onclick="removerFicha(${id})" title="Remover ficha">✕ Remover</button>` : ''}
+    </div>
+
+    <div class="ficha-campos">
+      <div class="campo-ficha campo-largo">
+        <label>Nº do Processo</label>
+        <input id="p${id}_numero_processo" placeholder="0000000-00.0000.0.00.0000"/>
+      </div>
+      <div class="campo-ficha campo-largo">
+        <label>Nome da Parte (Segurado)</label>
+        <input id="p${id}_nome_parte" placeholder="Nome completo do segurado"/>
+      </div>
+      <div class="campo-ficha">
+        <label>CID</label>
+        <input id="p${id}_cid_principal" placeholder="Ex: M54.5"/>
+      </div>
+      <div class="campo-ficha">
+        <label>Membro da Sequela</label>
+        <input id="p${id}_parte_corpo" placeholder="Ex: Coluna lombar"/>
+      </div>
+      <div class="campo-ficha">
+        <label>Função Exercida</label>
+        <input id="p${id}_profissao" placeholder="Ex: Pedreiro"/>
+      </div>
+      <div class="campo-ficha">
+        <label>Comarca</label>
+        <input id="p${id}_comarca" placeholder="Ex: São Paulo"/>
+      </div>
+      <div class="campo-ficha">
+        <label>Estado</label>
+        <select id="p${id}_estado">
+          <option value="">UF...</option>
+          <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+          <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+          <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+          <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+          <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+          <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+          <option>SP</option><option>SE</option><option>TO</option>
+        </select>
+      </div>
+      <div class="campo-ficha">
+        <label>Resultado da Sentença</label>
+        <select id="p${id}_resultado">
+          <option value="">Auto-detectar</option>
+          <option value="procedente">Favorável</option>
+          <option value="improcedente">Desfavorável</option>
+          <option value="parcialmente_procedente">Parcialmente Favorável</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="ficha-docs-titulo">📎 Documentos do Processo</div>
+    <div class="ficha-docs">
+      <div class="doc-slot" id="slot-inicial-${id}" onclick="selecionarDoc(${id},'inicial')">
+        <div class="doc-slot-icon">📄</div>
+        <div class="doc-slot-label">Petição Inicial</div>
+        <div class="doc-slot-nome" id="nome-inicial-${id}">Nenhum arquivo</div>
+        <input type="file" id="file-inicial-${id}" accept=".pdf" style="display:none"
+          onchange="onDocSelecionado(${id},'inicial',this)"/>
+      </div>
+      <div class="doc-slot" id="slot-laudo-${id}" onclick="selecionarDoc(${id},'laudo')">
+        <div class="doc-slot-icon">🩺</div>
+        <div class="doc-slot-label">Laudo Pericial</div>
+        <div class="doc-slot-nome" id="nome-laudo-${id}">Nenhum arquivo</div>
+        <input type="file" id="file-laudo-${id}" accept=".pdf" style="display:none"
+          onchange="onDocSelecionado(${id},'laudo',this)"/>
+      </div>
+      <div class="doc-slot" id="slot-sentenca-${id}" onclick="selecionarDoc(${id},'sentenca')">
+        <div class="doc-slot-icon">⚖️</div>
+        <div class="doc-slot-label">Sentença</div>
+        <div class="doc-slot-nome" id="nome-sentenca-${id}">Nenhum arquivo</div>
+        <input type="file" id="file-sentenca-${id}" accept=".pdf" style="display:none"
+          onchange="onDocSelecionado(${id},'sentenca',this)"/>
+      </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:20px">
+      <button class="btn btn-primary" onclick="enviarFicha(${id})">
+        📤 Enviar Processo ${fichaCount}
+      </button>
+    </div>
+  `;
+  container.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function limparTodos() {
-  arquivosSelecionados = [];
-  renderizarArquivos();
+function removerFicha(id) {
+  document.getElementById(`ficha-${id}`)?.remove();
 }
 
-function removerArquivo(i) {
-  arquivosSelecionados.splice(i, 1);
-  renderizarArquivos();
+function selecionarDoc(fichaId, tipo) {
+  document.getElementById(`file-${tipo}-${fichaId}`).click();
 }
 
-function renderizarArquivos() {
-  const wrap = document.getElementById('upload-arquivos-wrap');
-  const lista = document.getElementById('upload-arquivos-lista');
+function onDocSelecionado(fichaId, tipo, input) {
+  const file = input.files[0];
+  const nomeEl = document.getElementById(`nome-${tipo}-${fichaId}`);
+  const slot = document.getElementById(`slot-${tipo}-${fichaId}`);
+  if (file) {
+    nomeEl.textContent = file.name;
+    slot.classList.add('doc-slot-preenchido');
+  } else {
+    nomeEl.textContent = 'Nenhum arquivo';
+    slot.classList.remove('doc-slot-preenchido');
+  }
+}
 
-  if (arquivosSelecionados.length === 0) {
-    wrap.style.display = 'none';
-    lista.innerHTML = '';
+async function enviarFicha(id) {
+  const get = campo => (document.getElementById(`p${id}_${campo}`)?.value || '').trim();
+
+  const docs = [
+    { tipo: 'inicial', file: document.getElementById(`file-inicial-${id}`)?.files[0] },
+    { tipo: 'laudo',   file: document.getElementById(`file-laudo-${id}`)?.files[0] },
+    { tipo: 'sentenca',file: document.getElementById(`file-sentenca-${id}`)?.files[0] },
+  ].filter(d => d.file);
+
+  if (docs.length === 0) {
+    toast('Selecione ao menos um documento PDF', 'error');
     return;
   }
-
-  wrap.style.display = 'block';
-  lista.innerHTML = arquivosSelecionados.map((f, i) => `
-    <div class="arquivo-card" id="arquivo-card-${i}">
-      <div class="arquivo-header">
-        <span class="arquivo-nome">📄 ${f.name}</span>
-        <button class="btn-remover" onclick="removerArquivo(${i})" title="Remover">✕</button>
-      </div>
-      <div class="arquivo-campos">
-        <div class="campo-sm">
-          <label>Nº do Processo</label>
-          <input id="f${i}_numero_processo" placeholder="0000000-00.0000.0.00.0000"/>
-        </div>
-        <div class="campo-sm">
-          <label>Nome da Parte</label>
-          <input id="f${i}_nome_parte" placeholder="Nome completo do segurado"/>
-        </div>
-        <div class="campo-sm">
-          <label>Tipo do Documento</label>
-          <select id="f${i}_tipo_documento">
-            <option value="">Auto-detectar</option>
-            <option value="inicial">Petição Inicial</option>
-            <option value="laudo">Laudo Pericial</option>
-            <option value="sentenca">Sentença</option>
-          </select>
-        </div>
-        <div class="campo-sm">
-          <label>CID</label>
-          <input id="f${i}_cid_principal" placeholder="Ex: M54.5"/>
-        </div>
-        <div class="campo-sm">
-          <label>Membro da Sequela</label>
-          <input id="f${i}_parte_corpo" placeholder="Ex: Coluna lombar"/>
-        </div>
-        <div class="campo-sm">
-          <label>Função Exercida</label>
-          <input id="f${i}_profissao" placeholder="Ex: Pedreiro"/>
-        </div>
-        <div class="campo-sm">
-          <label>Comarca</label>
-          <input id="f${i}_comarca" placeholder="Ex: São Paulo"/>
-        </div>
-        <div class="campo-sm">
-          <label>Resultado</label>
-          <select id="f${i}_resultado">
-            <option value="">Auto-detectar</option>
-            <option value="procedente">Favorável</option>
-            <option value="improcedente">Desfavorável</option>
-            <option value="parcialmente_procedente">Parcialmente Favorável</option>
-          </select>
-        </div>
-      </div>
-      <p class="arquivo-hint">Campos em branco serão detectados automaticamente do PDF</p>
-    </div>`).join('');
-}
-
-document.getElementById('btn-enviar').addEventListener('click', async () => {
-  if (arquivosSelecionados.length === 0) return;
 
   const progBox = document.getElementById('upload-progresso');
   const progLista = document.getElementById('progresso-lista');
   progBox.style.display = 'block';
   progLista.innerHTML = '';
+  progBox.scrollIntoView({ behavior: 'smooth' });
 
-  for (let i = 0; i < arquivosSelecionados.length; i++) {
-    const arquivo = arquivosSelecionados[i];
+  let ok = 0;
+  for (const doc of docs) {
     const item = document.createElement('div');
     item.className = 'prog-item';
-    item.innerHTML = `<div class="prog-status prog-load">⟳</div><span><strong>${arquivo.name}</strong> — processando...</span>`;
+    item.innerHTML = `<div class="prog-status prog-load">⟳</div><span><strong>${doc.file.name}</strong> (${doc.tipo}) — enviando...</span>`;
     progLista.appendChild(item);
 
     try {
       const form = new FormData();
-      form.append('file', arquivo);
-
-      const get = id => (document.getElementById(`f${i}_${id}`)?.value || '').trim();
+      form.append('file', doc.file);
+      form.append('tipo_documento', doc.tipo);
       form.append('numero_processo', get('numero_processo'));
-      form.append('nome_parte', get('nome_parte'));
-      form.append('tipo_documento', get('tipo_documento'));
-      form.append('cid_principal', get('cid_principal'));
-      form.append('parte_corpo', get('parte_corpo'));
-      form.append('profissao', get('profissao'));
-      form.append('comarca', get('comarca'));
-      form.append('resultado', get('resultado'));
+      form.append('nome_parte',      get('nome_parte'));
+      form.append('cid_principal',   get('cid_principal'));
+      form.append('parte_corpo',     get('parte_corpo'));
+      form.append('profissao',       get('profissao'));
+      form.append('comarca',         get('comarca'));
+      form.append('resultado',       get('resultado'));
 
       const res = await fetch('/api/upload', { method: 'POST', body: form });
       const data = await res.json();
 
       if (res.ok && data.sucesso) {
+        ok++;
         const infos = [
-          badgeTipo(data.tipo_detectado),
-          data.nome_parte ? `👤 ${data.nome_parte}` : '',
-          data.numero_processo ? `Proc: ${data.numero_processo}` : '',
+          badgeTipo(doc.tipo),
           data.cid_principal ? `CID: ${data.cid_principal}` : '',
-          data.comarca ? `Comarca: ${data.comarca}` : '',
           data.resultado ? badgeResultado(data.resultado) : '',
         ].filter(Boolean).join(' &nbsp;');
-        item.innerHTML = `<div class="prog-status prog-ok">✓</div><span><strong>${arquivo.name}</strong> — ${infos}</span>`;
+        item.innerHTML = `<div class="prog-status prog-ok">✓</div><span><strong>${doc.file.name}</strong> — ${infos}</span>`;
       } else {
-        item.innerHTML = `<div class="prog-status prog-err">✗</div><span><strong>${arquivo.name}</strong> — Erro: ${data.detail || 'desconhecido'}</span>`;
+        item.innerHTML = `<div class="prog-status prog-err">✗</div><span><strong>${doc.file.name}</strong> — Erro: ${data.detail || 'desconhecido'}</span>`;
       }
     } catch (e) {
-      item.innerHTML = `<div class="prog-status prog-err">✗</div><span><strong>${arquivo.name}</strong> — Erro de conexão</span>`;
+      item.innerHTML = `<div class="prog-status prog-err">✗</div><span><strong>${doc.file.name}</strong> — Erro de conexão</span>`;
     }
   }
 
-  const ok = document.querySelectorAll('.prog-ok').length;
-  arquivosSelecionados = [];
-  renderizarArquivos();
-  toast(`${ok} arquivo(s) processado(s) com sucesso!`, 'success');
-});
+  toast(`${ok} de ${docs.length} documento(s) enviado(s) com sucesso!`, ok > 0 ? 'success' : 'error');
+}
 
 // ─── ANÁLISE ──────────────────────────────────────────────────────────────────
 document.getElementById('form-analise').addEventListener('submit', async e => {
@@ -518,3 +546,4 @@ async function carregarAnalises() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 carregarDashboard();
+adicionarFicha();

@@ -105,32 +105,17 @@
       <section id="page-upload" class="page">
         <div class="page-header">
           <h1>Enviar Processos</h1>
-          <p>Faça upload de iniciais, laudos e sentenças em PDF. Preencha os dados manualmente ou deixe em branco para detecção automática.</p>
+          <p>Preencha os dados do processo e anexe os documentos correspondentes</p>
         </div>
 
-        <div class="box">
-          <h2 class="box-title">Selecionar arquivos PDF</h2>
-          <div class="upload-zone" id="upload-zone">
-            <div class="upload-icon">📁</div>
-            <p>Arraste arquivos PDF aqui ou clique para selecionar</p>
-            <small>Você pode selecionar vários arquivos de uma vez</small>
-            <input type="file" id="file-input" multiple accept=".pdf" style="display:none"/>
-          </div>
-        </div>
+        <div id="fichas-container"></div>
 
-        <div id="upload-arquivos-wrap" style="display:none; margin-top:20px">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px">
-            <h2 style="font-size:16px;font-weight:700;color:#1a1a2e">Arquivos selecionados</h2>
-            <div style="display:flex;gap:8px">
-              <button class="btn btn-sm" onclick="limparTodos()">Limpar todos</button>
-              <button id="btn-enviar" class="btn btn-primary">📤 Processar Arquivos</button>
-            </div>
-          </div>
-          <div id="upload-arquivos-lista"></div>
-        </div>
+        <button class="btn-add-processo" onclick="adicionarFicha()">
+          + Adicionar outro processo
+        </button>
 
-        <div id="upload-progresso" class="box" style="display:none; margin-top:20px">
-          <h2 class="box-title">Progresso do upload</h2>
+        <div id="upload-progresso" class="box" style="display:none; margin-top:24px">
+          <h2 class="box-title">Resultado do envio</h2>
           <div id="progresso-lista"></div>
         </div>
       </section>
