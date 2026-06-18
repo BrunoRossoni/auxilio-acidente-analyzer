@@ -54,10 +54,10 @@
         <div id="dashboard-conteudo">
           <div class="cards-grid">
             <div class="card card-blue">
-              <div class="card-icon">📄</div>
+              <div class="card-icon">📁</div>
               <div class="card-info">
                 <div class="card-value" id="total-docs">—</div>
-                <div class="card-label">Documentos</div>
+                <div class="card-label">Processos</div>
               </div>
             </div>
             <div class="card card-green">
@@ -286,6 +286,99 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <!-- MODAL DE EDIÇÃO -->
+  <div id="modal-editar" class="modal-overlay" style="display:none" onclick="fecharModal(event)">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>✏️ Editar Processo</h2>
+        <button class="btn-fechar-modal" onclick="fecharModalBtn()">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="edit-id"/>
+        <div class="modal-campos">
+          <div class="campo-ficha campo-largo">
+            <label>Nº do Processo</label>
+            <input id="edit-numero_processo" placeholder="0000000-00.0000.0.00.0000"/>
+          </div>
+          <div class="campo-ficha campo-largo">
+            <label>Nome da Parte (Segurado)</label>
+            <input id="edit-nome_parte" placeholder="Nome completo"/>
+          </div>
+          <div class="campo-ficha">
+            <label>Tipo do Documento</label>
+            <select id="edit-tipo_documento">
+              <option value="inicial">Petição Inicial</option>
+              <option value="laudo">Laudo Pericial</option>
+              <option value="sentenca">Sentença</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="campo-ficha">
+            <label>CID</label>
+            <input id="edit-cid_principal" placeholder="Ex: M54.5"/>
+          </div>
+          <div class="campo-ficha">
+            <label>Membro da Sequela</label>
+            <input id="edit-parte_corpo" placeholder="Ex: Coluna lombar"/>
+          </div>
+          <div class="campo-ficha">
+            <label>Função Exercida</label>
+            <input id="edit-profissao" placeholder="Ex: Pedreiro"/>
+          </div>
+          <div class="campo-ficha">
+            <label>Comarca</label>
+            <input id="edit-comarca" placeholder="Ex: São Paulo"/>
+          </div>
+          <div class="campo-ficha">
+            <label>Estado</label>
+            <select id="edit-estado">
+              <option value="">Selecione...</option>
+              <option>AC</option><option>AL</option><option>AP</option><option>AM</option>
+              <option>BA</option><option>CE</option><option>DF</option><option>ES</option>
+              <option>GO</option><option>MA</option><option>MT</option><option>MS</option>
+              <option>MG</option><option>PA</option><option>PB</option><option>PR</option>
+              <option>PE</option><option>PI</option><option>RJ</option><option>RN</option>
+              <option>RS</option><option>RO</option><option>RR</option><option>SC</option>
+              <option>SP</option><option>SE</option><option>TO</option>
+            </select>
+          </div>
+          <div class="campo-ficha">
+            <label>Resultado</label>
+            <select id="edit-resultado">
+              <option value="">Não definido</option>
+              <option value="procedente">Favorável</option>
+              <option value="improcedente">Desfavorável</option>
+              <option value="parcialmente_procedente">Parcialmente Favorável</option>
+            </select>
+          </div>
+          <div class="campo-ficha">
+            <label>Tipo de Acidente</label>
+            <select id="edit-tipo_acidente">
+              <option value="">Não definido</option>
+              <option value="acidente de trabalho">Acidente de Trabalho</option>
+              <option value="doença ocupacional">Doença Ocupacional</option>
+              <option value="acidente de trajeto">Acidente de Trajeto</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="campo-ficha">
+            <label>Grau de Incapacidade</label>
+            <select id="edit-grau_incapacidade">
+              <option value="">Não definido</option>
+              <option value="parcial">Parcial</option>
+              <option value="total">Total</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm" onclick="fecharModalBtn()">Cancelar</button>
+        <button class="btn btn-primary" onclick="salvarEdicao()">💾 Salvar Alterações</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/static/js/app.js"></script>
 </body>
 </html>

@@ -77,7 +77,7 @@ async function carregarDashboard() {
     document.getElementById('dashboard-vazio').style.display = 'none';
     document.getElementById('dashboard-conteudo').style.display = 'block';
 
-    document.getElementById('total-docs').textContent = r.total_documentos.toLocaleString('pt-BR');
+    document.getElementById('total-docs').textContent = (r.total_processos ?? r.total_documentos).toLocaleString('pt-BR');
     document.getElementById('total-procedentes').textContent = r.procedentes;
     document.getElementById('total-improcedentes').textContent = r.improcedentes;
     document.getElementById('taxa-geral').textContent = r.taxa_geral + '%';
@@ -419,7 +419,10 @@ async function carregarProcessosAgrupados() {
           <td>${ou(d.profissao)}</td>
           <td>${ou(d.comarca)}</td>
           <td>${d.resultado ? badgeResultado(d.resultado) : '—'}</td>
-          <td><button class="btn btn-danger btn-sm" onclick="deletarProcesso(${d.id})">🗑</button></td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-edit btn-sm" onclick='abrirModal(${JSON.stringify(d)})'>✏️</button>
+            <button class="btn btn-danger btn-sm" onclick="deletarProcesso(${d.id})">🗑</button>
+          </td>
         </tr>`).join('');
 
       return `
@@ -487,7 +490,10 @@ async function carregarProcessos(skip) {
         <td>${p.resultado ? badgeResultado(p.resultado) : '—'}</td>
         <td>${ou(p.estado)}</td>
         <td style="white-space:nowrap">${p.processado_em ? new Date(p.processado_em).toLocaleDateString('pt-BR') : '—'}</td>
-        <td><button class="btn btn-danger btn-sm" onclick="deletarProcesso(${p.id})">🗑</button></td>
+        <td style="white-space:nowrap">
+          <button class="btn btn-edit btn-sm" onclick='abrirModal(${JSON.stringify(p)})'>✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deletarProcesso(${p.id})">🗑</button>
+        </td>
       </tr>`).join('');
   } catch(e) {
     toast('Erro ao carregar lista', 'error');
@@ -541,6 +547,71 @@ async function carregarAnalises() {
     }).join('');
   } catch(e) {
     toast('Erro ao carregar análises', 'error');
+  }
+}
+
+// ─── MODAL DE EDIÇÃO ─────────────────────────────────────────────────────────
+function abrirModal(p) {
+  document.getElementById('edit-id').value = p.id;
+  document.getElementById('edit-numero_processo').value = p.numero_processo || '';
+  document.getElementById('edit-nome_parte').value = p.nome_parte || '';
+  document.getElementById('edit-tipo_documento').value = p.tipo_documento || '';
+  document.getElementById('edit-cid_principal').value = p.cid_principal || '';
+  document.getElementById('edit-parte_corpo').value = p.parte_corpo || '';
+  document.getElementById('edit-profissao').value = p.profissao || '';
+  document.getElementById('edit-comarca').value = p.comarca || '';
+  document.getElementById('edit-estado').value = p.estado || '';
+  document.getElementById('edit-resultado').value = p.resultado || '';
+  document.getElementById('edit-tipo_acidente').value = p.tipo_acidente || '';
+  document.getElementById('edit-grau_incapacidade').value = p.grau_incapacidade || '';
+  document.getElementById('modal-editar').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function fecharModalBtn() {
+  document.getElementById('modal-editar').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function fecharModal(e) {
+  if (e.target.id === 'modal-editar') fecharModalBtn();
+}
+
+async function salvarEdicao() {
+  const id = document.getElementById('edit-id').value;
+  const get = campo => document.getElementById(`edit-${campo}`).value;
+
+  const payload = {
+    numero_processo: get('numero_processo'),
+    nome_parte:      get('nome_parte'),
+    tipo_documento:  get('tipo_documento'),
+    cid_principal:   get('cid_principal'),
+    parte_corpo:     get('parte_corpo'),
+    profissao:       get('profissao'),
+    comarca:         get('comarca'),
+    estado:          get('estado'),
+    resultado:       get('resultado'),
+    tipo_acidente:   get('tipo_acidente'),
+    grau_incapacidade: get('grau_incapacidade'),
+  };
+
+  try {
+    const res = await fetch(`/api/processos/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      toast(err.detail || 'Erro ao salvar', 'error');
+      return;
+    }
+    fecharModalBtn();
+    toast('Processo atualizado com sucesso!', 'success');
+    carregarProcessosAgrupados();
+    if (viewAtual === 'lista') carregarProcessos(paginaAtual * POR_PAGINA);
+  } catch(e) {
+    toast('Erro de conexão', 'error');
   }
 }
 

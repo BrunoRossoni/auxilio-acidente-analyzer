@@ -97,6 +97,9 @@ def get_descricao_cid(cid: str) -> str:
 
 def extract_resultado(text: str) -> str:
     text_lower = text.lower()
+    # Sentença homologatória de acordo equivale a procedente
+    if re.search(r'homologo\s+(?:o\s+)?acordo|sentença\s+homologatória|homologação\s+de\s+acordo|homologo.*?acordo', text_lower):
+        return "procedente"
     if re.search(r'julgo\s+parcialmente\s+procedente', text_lower):
         return "parcialmente_procedente"
     if re.search(r'julgo\s+procedente|pedido\s+procedente|ação\s+procedente', text_lower):

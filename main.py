@@ -2,6 +2,7 @@ import os
 import shutil
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form
+from pydantic import BaseModel
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -177,6 +178,14 @@ async def upload_lote(
 def get_dashboard(db: Session = Depends(get_db)):
     try:
         total_docs = db.query(func.count(Processo.id)).scalar() or 0
+        # Conta processos distintos (pelo número do processo)
+        total_processos = db.query(func.count(func.distinct(Processo.numero_processo))).filter(
+            Processo.numero_processo != None
+        ).scalar() or 0
+        # Documentos sem número de processo contam individualmente
+        sem_numero = db.query(func.count(Processo.id)).filter(Processo.numero_processo == None).scalar() or 0
+        total_processos = total_processos + sem_numero
+
         total_sentencas = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "sentenca").scalar() or 0
         total_laudos = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "laudo").scalar() or 0
         total_iniciais = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "inicial").scalar() or 0
@@ -264,6 +273,7 @@ def get_dashboard(db: Session = Depends(get_db)):
         return {
             "resumo": {
                 "total_documentos": total_docs,
+                "total_processos": total_processos,
                 "total_sentencas": total_sentencas,
                 "total_laudos": total_laudos,
                 "total_iniciais": total_iniciais,
@@ -441,6 +451,35 @@ def listar_analises(skip: int = 0, limit: int = 50, db: Session = Depends(get_db
             for f in fichas
         ]
     }
+
+
+class ProcessoUpdate(BaseModel):
+    numero_processo: Optional[str] = None
+    nome_parte: Optional[str] = None
+    tipo_documento: Optional[str] = None
+    cid_principal: Optional[str] = None
+    descricao_cid: Optional[str] = None
+    parte_corpo: Optional[str] = None
+    profissao: Optional[str] = None
+    comarca: Optional[str] = None
+    estado: Optional[str] = None
+    resultado: Optional[str] = None
+    tipo_acidente: Optional[str] = None
+    grau_incapacidade: Optional[str] = None
+
+
+@app.patch("/api/processos/{processo_id}")
+def atualizar_processo(processo_id: int, dados: ProcessoUpdate, db: Session = Depends(get_db)):
+    processo = db.query(Processo).filter(Processo.id == processo_id).first()
+    if not processo:
+        raise HTTPException(status_code=404, detail="Processo não encontrado")
+
+    for campo, valor in dados.model_dump(exclude_none=True).items():
+        setattr(processo, campo, valor if valor != "" else None)
+
+    db.commit()
+    db.refresh(processo)
+    return _serialize_processo(processo)
 
 
 @app.delete("/api/processos/{processo_id}")
