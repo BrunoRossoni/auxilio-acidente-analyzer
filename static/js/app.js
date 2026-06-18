@@ -87,11 +87,11 @@ async function carregarDashboard() {
       tabelaCids.innerHTML = '<p class="sem-dados">Sem dados de sentença ainda.</p>';
     } else {
       tabelaCids.innerHTML = `<table class="tabela">
-        <thead><tr><th>CID</th><th>Descrição</th><th>Total</th><th>Taxa</th></tr></thead>
+        <thead><tr><th>CID</th><th>Membro da Sequela</th><th>Total</th><th>Taxa</th></tr></thead>
         <tbody>${data.top_cids.map(c => `
           <tr>
             <td><span class="badge badge-blue">${c.cid}</span></td>
-            <td class="td-ellipsis" title="${c.descricao}">${c.descricao}</td>
+            <td class="td-ellipsis" title="${c.membro}">${c.membro}</td>
             <td>${c.total}</td>
             <td>${taxaBar(c.taxa)}</td>
           </tr>`).join('')}

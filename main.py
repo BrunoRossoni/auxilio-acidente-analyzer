@@ -108,6 +108,10 @@ async def upload_pdf(
         db.commit()
         db.refresh(processo)
 
+        # Propaga campos para os demais documentos do mesmo processo
+        _sincronizar_processo(processo.numero_processo, db)
+        db.refresh(processo)
+
         return {
             "sucesso": True,
             "id": processo.id,
@@ -199,26 +203,27 @@ def get_dashboard(db: Session = Depends(get_db)):
 
         taxa_geral = round(procedentes / total_sentencas * 100, 1) if total_sentencas > 0 else 0
 
-        # Top CIDs — contagem separada por resultado para evitar CASE
+        # Top CIDs agrupados por CID + membro da sequela
         cid_rows = db.query(
             Processo.cid_principal,
-            Processo.descricao_cid,
+            Processo.parte_corpo,
             func.count(Processo.id).label("total"),
         ).filter(
             Processo.cid_principal != None,
             Processo.tipo_documento == "sentenca"
-        ).group_by(Processo.cid_principal, Processo.descricao_cid).order_by(func.count(Processo.id).desc()).limit(10).all()
+        ).group_by(Processo.cid_principal, Processo.parte_corpo).order_by(func.count(Processo.id).desc()).limit(10).all()
 
         top_cids = []
         for row in cid_rows:
             proc = db.query(func.count(Processo.id)).filter(
                 Processo.tipo_documento == "sentenca",
                 Processo.cid_principal == row.cid_principal,
+                Processo.parte_corpo == row.parte_corpo,
                 Processo.resultado == "procedente"
             ).scalar() or 0
             top_cids.append({
                 "cid": row.cid_principal,
-                "descricao": row.descricao_cid or "Sem descrição",
+                "membro": row.parte_corpo or "Não informado",
                 "total": row.total,
                 "procedentes": proc,
                 "taxa": round(proc / row.total * 100, 1) if row.total > 0 else 0
@@ -350,6 +355,28 @@ async def analisar_caso(
 
 # ─── LISTAGEM DE PROCESSOS ──────────────────────────────────────────────────────
 
+CAMPOS_PROPAGAVEIS = [
+    "resultado", "tipo_acidente", "comarca", "estado", "cidade",
+    "nome_parte", "cid_principal", "descricao_cid", "parte_corpo",
+    "profissao", "grau_incapacidade",
+]
+
+def _sincronizar_processo(numero_processo: str, db: Session):
+    """Após qualquer salvar, propaga campos não-nulos para todos os docs do mesmo processo."""
+    if not numero_processo:
+        return
+    docs = db.query(Processo).filter(Processo.numero_processo == numero_processo).all()
+    if len(docs) <= 1:
+        return
+    for campo in CAMPOS_PROPAGAVEIS:
+        valor = next((getattr(d, campo) for d in docs if getattr(d, campo)), None)
+        if valor:
+            for doc in docs:
+                if not getattr(doc, campo):
+                    setattr(doc, campo, valor)
+    db.commit()
+
+
 def _serialize_processo(p: Processo) -> dict:
     return {
         "id": p.id,
@@ -478,6 +505,10 @@ def atualizar_processo(processo_id: int, dados: ProcessoUpdate, db: Session = De
         setattr(processo, campo, valor if valor != "" else None)
 
     db.commit()
+    db.refresh(processo)
+
+    # Propaga campos atualizados para os demais documentos do processo
+    _sincronizar_processo(processo.numero_processo, db)
     db.refresh(processo)
     return _serialize_processo(processo)
 
