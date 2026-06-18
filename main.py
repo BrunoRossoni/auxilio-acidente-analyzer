@@ -156,6 +156,10 @@ async def upload_lote(
 
 @app.get("/api/dashboard")
 def get_dashboard(db: Session = Depends(get_db)):
+    try:
+        total_docs = db.query(func.count(Processo.id)).scalar()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro na query: {str(e)}")
     total_docs = db.query(func.count(Processo.id)).scalar()
     total_sentencas = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "sentenca").scalar()
     total_laudos = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "laudo").scalar()
