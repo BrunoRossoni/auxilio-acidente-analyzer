@@ -11,17 +11,17 @@ _db_url = os.getenv("DATABASE_URL", "sqlite:///./auxilio_acidente.db")
 if _db_url.startswith("postgres://"):
     _db_url = _db_url.replace("postgres://", "postgresql://", 1)
 
-if _db_url.startswith("postgresql://"):
-    # Remove query string — pg8000 não aceita parâmetros na URL
-    if "?" in _db_url:
-        _db_url = _db_url.split("?")[0]
-    _db_url = _db_url.replace("postgresql://", "postgresql+pg8000://", 1)
-    _kwargs = {}  # Sem SSL — conexão interna Render (mesma região)
-else:
-    _kwargs = {"check_same_thread": False}
+# Remove query string (sslmode etc) — conexão interna Render não precisa de SSL
+if _db_url.startswith("postgresql://") and "?" in _db_url:
+    _db_url = _db_url.split("?")[0]
 
 DATABASE_URL = _db_url
-engine = create_engine(DATABASE_URL, connect_args=_kwargs)
+
+if DATABASE_URL.startswith("postgresql://"):
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_size=3, max_overflow=0)
+else:
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

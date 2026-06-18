@@ -5,7 +5,7 @@ from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case
+from sqlalchemy import func
 from typing import Optional
 import uvicorn
 from dotenv import load_dotenv
@@ -157,99 +157,107 @@ async def upload_lote(
 @app.get("/api/dashboard")
 def get_dashboard(db: Session = Depends(get_db)):
     try:
-        total_docs = db.query(func.count(Processo.id)).scalar()
+        total_docs = db.query(func.count(Processo.id)).scalar() or 0
+        total_sentencas = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "sentenca").scalar() or 0
+        total_laudos = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "laudo").scalar() or 0
+        total_iniciais = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "inicial").scalar() or 0
+
+        procedentes = db.query(func.count(Processo.id)).filter(
+            Processo.resultado == "procedente", Processo.tipo_documento == "sentenca"
+        ).scalar() or 0
+        improcedentes = db.query(func.count(Processo.id)).filter(
+            Processo.resultado == "improcedente", Processo.tipo_documento == "sentenca"
+        ).scalar() or 0
+
+        taxa_geral = round(procedentes / total_sentencas * 100, 1) if total_sentencas > 0 else 0
+
+        # Top CIDs — contagem separada por resultado para evitar CASE
+        cid_rows = db.query(
+            Processo.cid_principal,
+            Processo.descricao_cid,
+            func.count(Processo.id).label("total"),
+        ).filter(
+            Processo.cid_principal != None,
+            Processo.tipo_documento == "sentenca"
+        ).group_by(Processo.cid_principal, Processo.descricao_cid).order_by(func.count(Processo.id).desc()).limit(10).all()
+
+        top_cids = []
+        for row in cid_rows:
+            proc = db.query(func.count(Processo.id)).filter(
+                Processo.tipo_documento == "sentenca",
+                Processo.cid_principal == row.cid_principal,
+                Processo.resultado == "procedente"
+            ).scalar() or 0
+            top_cids.append({
+                "cid": row.cid_principal,
+                "descricao": row.descricao_cid or "Sem descrição",
+                "total": row.total,
+                "procedentes": proc,
+                "taxa": round(proc / row.total * 100, 1) if row.total > 0 else 0
+            })
+
+        # Por estado
+        est_rows = db.query(
+            Processo.estado,
+            func.count(Processo.id).label("total"),
+        ).filter(
+            Processo.estado != None,
+            Processo.tipo_documento == "sentenca"
+        ).group_by(Processo.estado).order_by(func.count(Processo.id).desc()).limit(10).all()
+
+        por_estado = []
+        for row in est_rows:
+            proc = db.query(func.count(Processo.id)).filter(
+                Processo.tipo_documento == "sentenca",
+                Processo.estado == row.estado,
+                Processo.resultado == "procedente"
+            ).scalar() or 0
+            por_estado.append({
+                "estado": row.estado,
+                "total": row.total,
+                "procedentes": proc,
+                "taxa": round(proc / row.total * 100, 1) if row.total > 0 else 0
+            })
+
+        # Por tipo de acidente
+        tipo_rows = db.query(
+            Processo.tipo_acidente,
+            func.count(Processo.id).label("total"),
+        ).filter(
+            Processo.tipo_acidente != None,
+            Processo.tipo_documento == "sentenca"
+        ).group_by(Processo.tipo_acidente).all()
+
+        por_tipo = []
+        for row in tipo_rows:
+            proc = db.query(func.count(Processo.id)).filter(
+                Processo.tipo_documento == "sentenca",
+                Processo.tipo_acidente == row.tipo_acidente,
+                Processo.resultado == "procedente"
+            ).scalar() or 0
+            por_tipo.append({
+                "tipo": row.tipo_acidente,
+                "total": row.total,
+                "procedentes": proc,
+                "taxa": round(proc / row.total * 100, 1) if row.total > 0 else 0
+            })
+
+        return {
+            "resumo": {
+                "total_documentos": total_docs,
+                "total_sentencas": total_sentencas,
+                "total_laudos": total_laudos,
+                "total_iniciais": total_iniciais,
+                "procedentes": procedentes,
+                "improcedentes": improcedentes,
+                "taxa_geral": taxa_geral,
+            },
+            "top_cids": top_cids,
+            "por_estado": por_estado,
+            "por_tipo_acidente": por_tipo,
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro na query: {str(e)}")
-    total_docs = db.query(func.count(Processo.id)).scalar()
-    total_sentencas = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "sentenca").scalar()
-    total_laudos = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "laudo").scalar()
-    total_iniciais = db.query(func.count(Processo.id)).filter(Processo.tipo_documento == "inicial").scalar()
-
-    procedentes = db.query(func.count(Processo.id)).filter(
-        Processo.resultado == "procedente", Processo.tipo_documento == "sentenca"
-    ).scalar()
-    improcedentes = db.query(func.count(Processo.id)).filter(
-        Processo.resultado == "improcedente", Processo.tipo_documento == "sentenca"
-    ).scalar()
-
-    taxa_geral = round(procedentes / total_sentencas * 100, 1) if total_sentencas > 0 else 0
-
-    # Top CIDs
-    cid_query = db.query(
-        Processo.cid_principal,
-        Processo.descricao_cid,
-        func.count(Processo.id).label("total"),
-        func.sum(case((Processo.resultado == "procedente", 1), else_=0)).label("procedentes")
-    ).filter(
-        Processo.cid_principal != None,
-        Processo.tipo_documento == "sentenca"
-    ).group_by(Processo.cid_principal).order_by(func.count(Processo.id).desc()).limit(10).all()
-
-    top_cids = [
-        {
-            "cid": row.cid_principal,
-            "descricao": row.descricao_cid or "Sem descrição",
-            "total": row.total,
-            "procedentes": row.procedentes or 0,
-            "taxa": round((row.procedentes or 0) / row.total * 100, 1) if row.total > 0 else 0
-        }
-        for row in cid_query
-    ]
-
-    # Por estado
-    estado_query = db.query(
-        Processo.estado,
-        func.count(Processo.id).label("total"),
-        func.sum(case((Processo.resultado == "procedente", 1), else_=0)).label("procedentes")
-    ).filter(
-        Processo.estado != None,
-        Processo.tipo_documento == "sentenca"
-    ).group_by(Processo.estado).order_by(func.count(Processo.id).desc()).limit(10).all()
-
-    por_estado = [
-        {
-            "estado": row.estado,
-            "total": row.total,
-            "procedentes": row.procedentes or 0,
-            "taxa": round((row.procedentes or 0) / row.total * 100, 1) if row.total > 0 else 0
-        }
-        for row in estado_query
-    ]
-
-    # Por tipo de acidente
-    tipo_query = db.query(
-        Processo.tipo_acidente,
-        func.count(Processo.id).label("total"),
-        func.sum(case((Processo.resultado == "procedente", 1), else_=0)).label("procedentes")
-    ).filter(
-        Processo.tipo_acidente != None,
-        Processo.tipo_documento == "sentenca"
-    ).group_by(Processo.tipo_acidente).all()
-
-    por_tipo = [
-        {
-            "tipo": row.tipo_acidente,
-            "total": row.total,
-            "procedentes": row.procedentes or 0,
-            "taxa": round((row.procedentes or 0) / row.total * 100, 1) if row.total > 0 else 0
-        }
-        for row in tipo_query
-    ]
-
-    return {
-        "resumo": {
-            "total_documentos": total_docs,
-            "total_sentencas": total_sentencas,
-            "total_laudos": total_laudos,
-            "total_iniciais": total_iniciais,
-            "procedentes": procedentes,
-            "improcedentes": improcedentes,
-            "taxa_geral": taxa_geral,
-        },
-        "top_cids": top_cids,
-        "por_estado": por_estado,
-        "por_tipo_acidente": por_tipo,
-    }
+        raise HTTPException(status_code=500, detail=f"Erro dashboard: {type(e).__name__}: {str(e)}")
 
 
 # ─── ANÁLISE DE NOVO CASO ───────────────────────────────────────────────────────
